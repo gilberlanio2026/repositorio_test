@@ -1,0 +1,757 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financeiro Avançado - Supabase</title>
+    <!-- Chart.js para os Gráficos estilo Power BI -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons para os ícones modernos -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase JS Client Oficial -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-principal: #0d0e12;
+            --bg-card: rgba(22, 24, 30, 0.7);
+            --bg-sidebar: rgba(15, 17, 23, 0.85);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            
+            --roxo-neon: #9d4edf;
+            --roxo-glow: rgba(157, 78, 223, 0.4);
+            --verde-esmeralda: #06d6a0;
+            --verde-glow: rgba(6, 214, 160, 0.3);
+            --vermelho-saida: #ff4d6d;
+            --vermelho-glow: rgba(255, 77, 109, 0.3);
+            
+            --texto-principal: #f8f9fa;
+            --texto-secundario: #adb5bd;
+            --transicao-suave: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-principal);
+            color: var(--texto-principal);
+            min-height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(157, 78, 223, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 214, 160, 0.1) 0px, transparent 50%);
+        }
+
+        /* --- BARRA LATERAL (ESTILO POWER BI) --- */
+        aside {
+            width: 280px;
+            background: var(--bg-sidebar);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .logo-area {
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .logo-area h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, var(--roxo-neon), var(--verde-esmeralda));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .menu-container {
+            flex: 1;
+            padding: 20px 12px;
+            overflow-y: auto;
+        }
+
+        .pasta-mae {
+            margin-bottom: 20px;
+        }
+
+        .pasta-titulo {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--texto-secundario);
+            padding-left: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .subpastas {
+            list-style: none;
+        }
+
+        .item-menu {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            color: var(--texto-secundario);
+            text-decoration: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: var(--transicao-suave);
+            font-size: 0.95rem;
+            position: relative;
+        }
+
+        .item-menu:hover {
+            color: var(--texto-principal);
+            background: rgba(255, 255, 255, 0.03);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.02);
+        }
+
+        .item-menu.ativo {
+            color: var(--texto-principal);
+            background: rgba(157, 78, 223, 0.15);
+            border-left: 4px solid var(--roxo-neon);
+            box-shadow: 0 0 20px var(--roxo-glow);
+        }
+
+        .btn-add-categoria {
+            background: transparent;
+            border: 1px dashed var(--roxo-neon);
+            color: var(--roxo-neon);
+            width: calc(100% - 24px);
+            margin: 8px 12px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            transition: var(--transicao-suave);
+        }
+
+        .btn-add-categoria:hover {
+            background: var(--roxo-neon);
+            color: var(--texto-principal);
+            box-shadow: 0 0 15px var(--roxo-glow);
+        }
+
+        /* --- ÁREA PRINCIPAL --- */
+        main {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .contexto-atual {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .contexto-atual span {
+            color: var(--roxo-neon);
+            text-shadow: 0 0 10px var(--roxo-glow);
+        }
+
+        /* --- CARDS DE SINALIZAÇÃO (KPIs) --- */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card-kpi {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transicao-suave);
+        }
+
+        .card-kpi:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .kpi-info p {
+            font-size: 0.85rem;
+            color: var(--texto-secundario);
+            margin-bottom: 6px;
+        }
+
+        .kpi-info h3 {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .kpi-icone {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kpi-entradas .kpi-icone { background: rgba(6, 214, 160, 0.15); color: var(--verde-esmeralda); box-shadow: 0 0 15px var(--verde-glow); }
+        .kpi-saidas .kpi-icone { background: rgba(255, 77, 109, 0.15); color: var(--vermelho-saida); box-shadow: 0 0 15px var(--vermelho-glow); }
+        .kpi-saldo .kpi-icone { background: rgba(157, 78, 223, 0.15); color: var(--roxo-neon); box-shadow: 0 0 15px var(--roxo-glow); }
+
+        /* --- ZONA DE GRÁFICOS --- */
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-layout { grid-template-columns: 1fr; }
+        }
+
+        .painel-grafico, .painel-formulario, .painel-tabela {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .painel-tabela {
+            grid-column: 1 / -1;
+            margin-top: 5px;
+        }
+
+        .painel-titulo {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* --- FORMULÁRIO --- */
+        .form-grupo {
+            margin-bottom: 16px;
+        }
+
+        .form-grupo label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--texto-secundario);
+            margin-bottom: 6px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--texto-principal);
+            outline: none;
+            transition: var(--transicao-suave);
+        }
+
+        .form-control:focus {
+            border-color: var(--roxo-neon);
+            box-shadow: 0 0 10px var(--roxo-glow);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-salvar {
+            width: 100%;
+            background: linear-gradient(135deg, var(--roxo-neon), #7b2cbf);
+            color: var(--texto-principal);
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transicao-suave);
+            margin-top: 10px;
+            box-shadow: 0 4px 15px var(--roxo-glow);
+        }
+
+        .btn-salvar:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(157, 78, 223, 0.6);
+        }
+
+        /* --- TABELA DINÂMICA --- */
+        .wrapper-tabela {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 14px;
+            color: var(--texto-secundario);
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        td {
+            padding: 14px;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        tr {
+            transition: var(--transicao-suave);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .valor-entrada { color: var(--verde-esmeralda); font-weight: 600; }
+        .valor-saida { color: var(--vermelho-saida); font-weight: 600; }
+
+        .badge-categoria {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            border: 1px solid var(--border-glass);
+        }
+
+        @keyframes fadeInRow {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animar-entrada {
+            animation: fadeInRow 0.5s ease forwards;
+        }
+
+        .hidden { display: none !important; }
+    </style></head><body>
+
+    <!-- BARRA LATERAL -->
+    <aside>
+        <div class="logo-area">
+            <i data-lucide="bar-chart-3" style="color: var(--roxo-neon);"></i>
+            <h2>FINANCE BI</h2>
+        </div>
+        
+        <div class="menu-container">
+            <div class="pasta-mae">
+                <div class="pasta-titulo"><i data-lucide="layout-dashboard" size="14"></i> Dashboard</div>
+                <ul class="subpastas">
+                    <li class="item-menu ativo" onclick="mudarContexto('visao-geral', null, this)">
+                        <i data-lucide="pie-chart" size="16"></i> Visão Geral
+                    </li>
+                </ul>
+            </div>
+
+            <div class="pasta-mae">
+                <div class="pasta-titulo"><i data-lucide="calendar" size="14"></i> Meses</div>
+                <ul class="subpastas" id="lista-meses"></ul>
+            </div>
+
+            <div class="pasta-mae">
+                <div class="pasta-titulo"><i data-lucide="tags" size="14"></i> Categorias</div>
+                <ul class="subpastas" id="lista-categorias"></ul>
+                <button class="btn-add-categoria" onclick="criarNovaCategoria()">
+                    <i data-lucide="plus" size="14"></i> Nova Categoria
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main>
+        <header>
+            <div class="contexto-atual">
+                Filtro Ativo: <span id="label-contexto">Visão Geral</span>
+            </div>
+        </header>
+
+        <!-- KPIs -->
+        <div class="kpi-container">
+            <div class="card-kpi kpi-entradas">
+                <div class="kpi-info">
+                    <p>Total Entradas</p>
+                    <h3 id="kpi-total-entradas">R$ 0,00</h3>
+                </div>
+                <div class="kpi-icone"><i data-lucide="trending-up"></i></div>
+            </div>
+            <div class="card-kpi kpi-saidas">
+                <div class="kpi-info">
+                    <p>Total Saídas</p>
+                    <h3 id="kpi-total-saidas">R$ 0,00</h3>
+                </div>
+                <div class="kpi-icone"><i data-lucide="trending-down"></i></div>
+            </div>
+            <div class="card-kpi kpi-saldo">
+                <div class="kpi-info">
+                    <p>Saldo do Filtro</p>
+                    <h3 id="kpi-total-saldo">R$ 0,00</h3>
+                </div>
+                <div class="kpi-icone"><i data-lucide="wallet"></i></div>
+            </div>
+        </div>
+
+        <!-- LAYOUT -->
+        <div class="dashboard-layout">
+            <div class="painel-grafico" id="bloco-grafico">
+                <div class="painel-titulo">
+                    <i data-lucide="bar-chart-2" style="color: var(--verde-esmeralda)"></i> 
+                    Performance Mensal (Entradas vs Saídas)
+                </div>
+                <div style="position: relative; height:240px; width:100%">
+                    <canvas id="chartFinancas"></canvas>
+                </div>
+            </div>
+
+            <div class="painel-formulario">
+                <div class="painel-titulo">
+                    <i data-lucide="plus-circle" style="color: var(--roxo-neon)"></i> 
+                    Nova Transação
+                </div>
+                <form id="form-transacao" onsubmit="adicionarTransacao(event)">
+                    <div class="form-grupo">
+                        <label for="txt-nome">Descrição</label>
+                        <input type="text" id="txt-nome" class="form-control" placeholder="Ex: Salário..." required>
+                    </div>
+                    <div class="form-grupo">
+                        <label for="num-valor">Valor (R$)</label>
+                        <input type="number" step="0.01" id="num-valor" class="form-control" placeholder="0,00" required>
+                    </div>
+                    <div class="form-grupo">
+                        <label for="sel-tipo">Tipo</label>
+                        <select id="sel-tipo" class="form-control" required>
+                            <option value="Entrada">Entrada (+)</option>
+                            <option value="Saída">Saída (-)</option>
+                        </select>
+                    </div>
+                    <div class="form-grupo">
+                        <label for="sel-mes">Mês de Referência</label>
+                        <select id="sel-mes" class="form-control" required></select>
+                    </div>
+                    <div class="form-grupo">
+                        <label for="sel-categoria">Categoria</label>
+                        <select id="sel-categoria" class="form-control" required></select>
+                    </div>
+                    <button type="submit" class="btn-salvar">Salvar no Banco</button>
+                </form>
+            </div>
+
+            <div class="painel-tabela">
+                <div class="painel-titulo">
+                    <i data-lucide="list" style="color: var(--roxo-neon)"></i> 
+                    Registros Encontrados
+                </div>
+                <div class="wrapper-tabela">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Descrição</th>
+                                <th>Mês</th>
+                                <th>Categoria</th>
+                                <th>Tipo</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpo-tabela"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- CREDENCIAIS DO SUPABASE INSERIDAS COM SUCESSO ---
+        const SUPABASE_URL = "https://egqdxfccvlnnoaqayfqy.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVncWR4ZmNjdmxubm9hcWF5ZnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyOTMyNDYsImV4cCI6MjA5NDg2OTI0Nn0.4fuYP6mlIbGReeGmpWdcd19sxERognBtm2KpP9C0EII";
+
+        // Inicializa o client do Supabase
+        const supabase = _supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        let categorias = [];
+        let transacoes = [];
+        let contextoAtual = { tipo: 'visao-geral', valor: null };
+        let chartInstance = null;
+
+        // --- INICIALIZADOR ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            renderizarMesesSidebar();
+            await carregarCategorias();
+            await carregarTransacoes();
+            lucide.createIcons();
+        });
+
+        function renderizarMesesSidebar() {
+            const containerMeses = document.getElementById("lista-meses");
+            containerMeses.innerHTML = meses.map(m => `
+                <li class="item-menu" onclick="mudarContexto('mes', '${m}', this)">
+                    <i data-lucide="chevron-right" size="14"></i> ${m}
+                </li>
+            `).join('');
+        }
+
+        // --- BUSCAR CATEGORIAS DO SUPABASE ---
+        async function carregarCategorias() {
+            const { data, error } = await supabase
+                .from('categorias')
+                .select('nome')
+                .order('nome', { ascending: true });
+
+            if (error) {
+                console.error("Erro ao buscar categorias:", error.message);
+                return;
+            }
+
+            categorias = data.map(c => c.nome);
+            renderizarCategoriasSidebar();
+            renderizarListasSelecao();
+        }
+
+        function renderizarCategoriasSidebar() {
+            const containerCategorias = document.getElementById("lista-categorias");
+            containerCategorias.innerHTML = categorias.map(c => `
+                <li class="item-menu" onclick="mudarContexto('categoria', '${c}', this)">
+                    <i data-lucide="hash" size="14"></i> ${c}
+                </li>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderizarListasSelecao() {
+            const selMes = document.getElementById("sel-mes");
+            const selCat = document.getElementById("sel-categoria");
+
+            selMes.innerHTML = meses.map(m => `<option value="${m}">${m}</option>`).join('');
+            selCat.innerHTML = categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        // --- BUSCAR TRANSAÇÕES DO SUPABASE ---
+        async function carregarTransacoes() {
+            const { data, error } = await supabase
+                .from('transacoes')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Erro ao buscar transações:", error.message);
+                return;
+            }
+
+            transacoes = data;
+            atualizarPainel();
+        }
+
+        // --- MOTOR DE ALTERAÇÃO DE FILTRO ---
+        function mudarContexto(tipo, valor, elemento) {
+            document.querySelectorAll(".item-menu").forEach(el => el.classList.remove("ativo"));
+            if(elemento) elemento.classList.add("ativo");
+
+            contextoAtual.tipo = tipo;
+            contextoAtual.valor = valor;
+
+            const blocoGrafico = document.getElementById("bloco-grafico");
+            const labelContexto = document.getElementById("label-contexto");
+
+            if (tipo === 'visao-geral') {
+                blocoGrafico.classList.remove("hidden");
+                labelContexto.innerText = "Visão Geral";
+            } else {
+                blocoGrafico.classList.add("hidden");
+                labelContexto.innerText = `${tipo.toUpperCase()} ➔ ${valor}`;
+            }
+
+            atualizarPainel();
+        }
+
+        // --- PROCESSAMENTO REATIVO DOS DADOS ---
+        function atualizarPainel() {
+            let dadosFiltrados = transacoes.filter(t => {
+                if (contextoAtual.tipo === 'mes') return t.mes === contextoAtual.valor;
+                if (contextoAtual.tipo === 'categoria') return t.categoria === contextoAtual.valor;
+                return true;
+            });
+
+            let entradas = dadosFiltrados.filter(t => t.tipo === "Entrada").reduce((acc, cur) => acc + parseFloat(cur.valor), 0);
+            let saidas = dadosFiltrados.filter(t => t.tipo === "Saída").reduce((acc, cur) => acc + parseFloat(cur.valor), 0);
+            let saldo = entradas - saidas;
+
+            document.getElementById("kpi-total-entradas").innerText = formatarMoeda(entradas);
+            document.getElementById("kpi-total-saidas").innerText = formatarMoeda(saidas);
+            
+            const kpiSaldo = document.getElementById("kpi-total-saldo");
+            kpiSaldo.innerText = formatarMoeda(saldo);
+            kpiSaldo.style.color = saldo >= 0 ? 'var(--verde-esmeralda)' : 'var(--vermelho-saida)';
+
+            renderizarTabela(dadosFiltrados);
+
+            if (contextoAtual.tipo === 'visao-geral') {
+                renderizarGrafico();
+            }
+        }
+
+        function renderizarTabela(lista) {
+            const corpo = document.getElementById("corpo-tabela");
+            if(lista.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--texto-secundario);">Nenhum lançamento registrado neste filtro.</td></tr>`;
+                return;
+            }
+
+            corpo.innerHTML = lista.map(t => `
+                <tr>
+                    <td>${t.nome}</td>
+                    <td><span class="badge-categoria">${t.mes}</span></td>
+                    <td><span class="badge-categoria">${t.categoria}</span></td>
+                    <td>${t.tipo}</td>
+                    <td class="${t.tipo === 'Entrada' ? 'valor-entrada' : 'valor-saida'}">${t.tipo === 'Entrada' ? '+' : '-'} ${formatarMoeda(parseFloat(t.valor))}</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- ENVIAR NOVA TRANSAÇÃO PARA O SUPABASE ---
+        async function adicionarTransacao(event) {
+            event.preventDefault();
+
+            const nome = document.getElementById("txt-nome").value;
+            const valor = parseFloat(document.getElementById("num-valor").value);
+            const tipo = document.getElementById("sel-tipo").value;
+            const mes = document.getElementById("sel-mes").value;
+            const categoria = document.getElementById("sel-categoria").value;
+
+            // Envia para o Supabase
+            const { data, error } = await supabase
+                .from('transacoes')
+                .insert([{ nome, valor, tipo, mes, categoria }])
+                .select();
+
+            if (error) {
+                alert("Erro ao salvar transação: " + error.message);
+                return;
+            }
+
+            // Insere o retorno no topo do array local para renderização reativa rápida
+            transacoes.unshift(data[0]);
+
+            document.getElementById("form-transacao").reset();
+            renderizarListasSelecao(); 
+            atualizarPainel();
+
+            // Ativa o fade-in suave na linha criada
+            const primeiraLinha = document.querySelector("#corpo-tabela tr");
+            if(primeiraLinha) {
+                primeiraLinha.classList.add("animar-entrada");
+            }
+        }
+
+        // --- ENVIAR NOVA CATEGORIA PARA O SUPABASE ---
+        async function criarNovaCategoria() {
+            const nomeNovaCat = prompt("Digite o nome da nova Categoria:");
+            if (nomeNovaCat && nomeNovaCat.trim() !== "") {
+                const formatada = nomeNovaCat.trim();
+                
+                const { error } = await supabase
+                    .from('categorias')
+                    .insert([{ nome: formatada }]);
+
+                if (error) {
+                    if (error.code === '23505') {
+                        alert("Esta categoria já existe.");
+                    } else {
+                        alert("Erro ao salvar categoria: " + error.message);
+                    }
+                    return;
+                }
+
+                await carregarCategorias();
+            }
+        }
+
+        function formatarMoeda(v) {
+            return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        // --- CONFIGURAÇÃO DE GRÁFICOS ---
+        function renderizarGrafico() {
+            const ctx = document.getElementById('chartFinancas').getContext('2d');
+            
+            let datasetEntradas = meses.map(m => transacoes.filter(t => t.mes === m && t.tipo === "Entrada").reduce((a,c) => a + parseFloat(c.valor), 0));
+            let datasetSaidas = meses.map(m => transacoes.filter(t => t.mes === m && t.tipo === "Saída").reduce((a,c) => a + parseFloat(c.valor), 0));
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: [
+                        {
+                            label: 'Entradas',
+                            data: datasetEntradas,
+                            backgroundColor: 'rgba(6, 214, 160, 0.85)',
+                            borderColor: '#06d6a0',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Saídas',
+                            data: datasetSaidas,
+                            backgroundColor: 'rgba(255, 77, 109, 0.85)',
+                            borderColor: '#ff4d6d',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#f8f9fa' } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#adb5bd' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#adb5bd' } }
+                    }
+                }
+            });
+        }
+    </script></body></html>
